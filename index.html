@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#00327d" />
+  <meta name="description" content="Sistema de gestión de adelantos de salario" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Adelantos" />
+
+  <title>Adelantos Salario</title>
+
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- React + Babel desde CDN -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: #f7f9fb; }
+    #root { height: 100%; }
+
+    #splash {
+      position: fixed; inset: 0; background: #00327d;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
+      z-index: 9999; transition: opacity .4s ease;
+    }
+    #splash.hidden { opacity: 0; pointer-events: none; }
+    #splash-logo {
+      width: 72px; height: 72px; background: rgba(255,255,255,.15);
+      border-radius: 20px; display: flex; align-items: center; justify-content: center;
+    }
+    #splash-title {
+      font-family: 'Manrope', sans-serif; font-weight: 800; font-size: 22px;
+      color: #fff; letter-spacing: -.02em;
+    }
+    #splash-sub {
+      font-family: 'Inter', sans-serif; font-size: 13px; color: rgba(255,255,255,.6);
+    }
+    #splash-error {
+      display: none; font-family: 'Inter', sans-serif; font-size: 13px;
+      color: #ffb3b3; text-align: center; max-width: 260px; line-height: 1.5;
+    }
+    #splash-retry {
+      display: none; margin-top: 8px; padding: 10px 24px;
+      background: rgba(255,255,255,.15); border: 1.5px solid rgba(255,255,255,.3);
+      border-radius: 10px; color: #fff; font-family: 'Manrope', sans-serif;
+      font-weight: 700; font-size: 14px; cursor: pointer;
+    }
+    .splash-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: rgba(255,255,255,.4);
+      animation: splashPulse 1.2s ease-in-out infinite;
+    }
+    .splash-dot:nth-child(2) { animation-delay: .2s; }
+    .splash-dot:nth-child(3) { animation-delay: .4s; }
+    @keyframes splashPulse {
+      0%,100% { opacity:.3; transform:scale(.8); }
+      50%      { opacity:1;  transform:scale(1);  }
+    }
+    body { padding-bottom: env(safe-area-inset-bottom); }
+  </style>
+</head>
+<body>
+
+  <!-- Splash -->
+  <div id="splash">
+    <div id="splash-logo">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="1" x2="12" y2="23"/>
+        <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+      </svg>
+    </div>
+    <div id="splash-title">Adelantos Salario</div>
+    <div id="splash-sub">Cargando sistema...</div>
+    <div id="splash-dots" style="display:flex;gap:8px;margin-top:8px;">
+      <div class="splash-dot"></div>
+      <div class="splash-dot"></div>
+      <div class="splash-dot"></div>
+    </div>
+    <div id="splash-error">No se pudo cargar la app.<br/>Verifica tu conexión.</div>
+    <button id="splash-retry" onclick="location.reload()">Reintentar</button>
+  </div>
+
+  <div id="root"></div>
+
+  <!-- 1) Babel compila el JSX -->
+  <script type="text/babel" src="adelantos-app.jsx" data-presets="react"></script>
+
+  <!-- 2) Montar React cuando todo esté listo -->
+  <script type="text/babel">
+    function hideSplash() {
+      const splash = document.getElementById('splash');
+      if (splash) {
+        splash.classList.add('hidden');
+        setTimeout(() => splash.remove(), 500);
+      }
+    }
+
+    function showError() {
+      document.getElementById('splash-dots').style.display = 'none';
+      document.getElementById('splash-sub').style.display = 'none';
+      document.getElementById('splash-error').style.display = 'block';
+      document.getElementById('splash-retry').style.display = 'block';
+    }
+
+    function mount() {
+      try {
+        if (typeof App === 'undefined') throw new Error('App no definida');
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+        hideSplash();
+      } catch(e) {
+        console.error('Error montando App:', e);
+        showError();
+      }
+    }
+
+    // Intentar montar al cargar; si Babel aún no terminó, reintentar
+    if (document.readyState === 'complete') {
+      mount();
+    } else {
+      window.addEventListener('load', mount);
+    }
+
+    // Seguro extra: si en 15s no cargó, mostrar error con botón de reintento
+    const safetyTimer = setTimeout(() => {
+      if (document.getElementById('splash')) showError();
+    }, 15000);
+
+    // Limpiar timer si la app cargó bien
+    window.__appLoaded = () => clearTimeout(safetyTimer);
+
+    // Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js')
+        .then(reg => console.log('SW:', reg.scope))
+        .catch(err => console.log('SW error:', err));
+    }
+  </script>
+
+</body>
+</html>
