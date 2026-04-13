@@ -12,7 +12,7 @@ const save = (d) => { try { localStorage.setItem(SK, JSON.stringify(d)); } catch
 const loadTs = () => localStorage.getItem(BK) || null;
 const saveTs = (t) => localStorage.setItem(BK, t);
 const INIT = { empleados: [], adelantos: [], quincenas_cerradas: [] };
-const SUCURSALES = ["Principal", "Sucursal Norte", "Sucursal Sur", "Bodega", "Ventas Externas"];
+const SUCURSALES = ["LOURDES", "SANTA ANA", "SONSONATE", "CENTRAL", "ADMINISTRATIVO"];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt$ = (n) => `$${Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -388,7 +388,20 @@ function ModDashboard({ data, setData, setToast, setTab, setPrefilledEmp }) {
         const suc = emp?.sucursal || "Sin Sucursal";
         map[suc] = (map[suc] || 0) + Number(a.cantidad);
     });
-    return Object.entries(map).sort((a, b) => b[1] - a[1]);
+    const entries = Object.entries(map).sort((a, b) => b[1] - a[1]);
+    const grandTotal = entries.reduce((s, e) => s + e[1], 0);
+    
+    // Generar gradiente para el pastel
+    let currentPct = 0;
+    const colors = [T.primary, T.secondary, "#f5a623", "#7ed321", "#bd10e0"];
+    const gradientParts = entries.map((e, i) => {
+        const pct = grandTotal > 0 ? (e[1] / grandTotal) * 100 : 0;
+        const start = currentPct;
+        currentPct += pct;
+        return `${colors[i % colors.length]} ${start}% ${currentPct}%`;
+    });
+
+    return { entries, gradient: gradientParts.join(", "), grandTotal, colors };
   }, [data]);
 
   const diasCierre = useMemo(() => {
@@ -509,23 +522,36 @@ function ModDashboard({ data, setData, setToast, setTab, setPrefilledEmp }) {
             </div>
         </div>
 
-        {/* Gráfica Sucursales */}
+        {/* Gráfica Sucursales (PASTEL) */}
         <div style={{ background: T.surfaceLowest, borderRadius: 16, padding: 20, border: `1px solid ${T.outlineVar}22` }}>
-            <h3 style={{ fontFamily: "'Manrope', sans-serif", fontSize: 15, fontWeight: 800, color: T.onSurface, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+            <h3 style={{ fontFamily: "'Manrope', sans-serif", fontSize: 15, fontWeight: 800, color: T.onSurface, marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}>
                 <MI name="location_on" size={18} color={T.secondary} fill /> Gasto por Sucursal
             </h3>
-            <div style={{ display: "flex", gap: 12, alignItems: "flex-end", height: 120, paddingBottom: 20 }}>
-                {statsSuc.length === 0 ? <p style={{ fontSize: 12, color: T.outline }}>Sin datos</p> : statsSuc.map(([suc, val]) => {
-                    const pct = (val / statsSuc[0][1]) * 100;
-                    return (
-                        <div key={suc} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                            <div style={{ fontSize: 9, fontWeight: 800 }}>{fmt$(val)}</div>
-                            <div style={{ width: "100%", height: `${pct}%`, background: T.secondary, borderRadius: "4px 4px 0 0", minHeight: 4 }} />
-                            <div style={{ fontSize: 8, fontWeight: 700, textTransform: "uppercase", textAlign: "center", height: 10 }}>{suc}</div>
-                        </div>
-                    );
-                })}
-            </div>
+            {statsSuc.grandTotal === 0 ? (
+                <p style={{ fontSize: 12, color: T.outline, textAlign: "center", padding: 20 }}>Sin datos para mostrar</p>
+            ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+                    <div style={{ 
+                        width: 120, height: 120, borderRadius: "50%", flexShrink: 0,
+                        background: `conic-gradient(${statsSuc.gradient})`,
+                        boxShadow: "0 4px 12px rgba(0,0,0,.1)"
+                    }} />
+                    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+                        {statsSuc.entries.map(([suc, val], i) => {
+                            const pct = ((val / statsSuc.grandTotal) * 100).toFixed(0);
+                            return (
+                                <div key={suc} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        <div style={{ width: 10, height: 10, borderRadius: "50%", background: statsSuc.colors[i % statsSuc.colors.length] }} />
+                                        <span style={{ fontSize: 12, fontWeight: 600, color: T.onSurfaceVar }}>{suc}</span>
+                                    </div>
+                                    <span style={{ fontSize: 12, fontWeight: 800, color: T.onSurface }}>{pct}%</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
         </div>
       </div>
 
@@ -739,7 +765,11 @@ function ModEmpleados({ data, setData, setToast, prefilledEmp, setPrefilledEmp }
                 style={{ background: T.surfaceLow, border: "none", borderRadius: 8, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                 <MI name="edit" size={15} color={T.onSurfaceVar} fill />
               </button>
-              <button onClick={() => setData(d => ({ ...d, empleados: d.empleados.map(e => e.id === emp.id ? { ...e, activo: !e.activo } : e) }))}
+              <button onClick={() => {
+                if(window.confirm(`¿Deseas ${emp.activo ? 'DESACTIVAR' : 'ACTIVAR'} a ${emp.nombre}?`)) {
+                    setData(d => ({ ...d, empleados: d.empleados.map(e => e.id === emp.id ? { ...e, activo: !e.activo } : e) }));
+                }
+              }}
                 style={{ background: emp.activo ? T.errorCont : `${T.secondaryCont}55`, border: "none", borderRadius: 8, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: emp.activo ? T.error : T.secondary, display: "block" }} />
               </button>
@@ -876,7 +906,11 @@ function ModAdelantos({ data, setData, setToast, prefilledEmp, setPrefilledEmp }
                     style={{ background: "#25D36622", border: "none", borderRadius: 8, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                     <MI name="wa" size={15} color="#25D366" />
                   </button>
-                  <button onClick={() => { if (window.confirm("¿Eliminar?")) setData(d => ({ ...d, adelantos: d.adelantos.filter(a => a.id !== adv.id) })); }}
+                  <button onClick={() => { 
+                    if (window.confirm("¿Estás seguro de ELIMINAR este adelanto? Esta acción no se puede deshacer.")) {
+                        setData(d => ({ ...d, adelantos: d.adelantos.filter(a => a.id !== adv.id) })); 
+                    }
+                  }}
                     style={{ background: T.errorCont, border: "none", borderRadius: 8, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                     <MI name="delete" size={15} color={T.error} fill />
                   </button>
@@ -1335,4 +1369,3 @@ function App() {
     </div>
   );
 }
-if (typeof window.__appLoaded === 'function') window.__appLoaded();
