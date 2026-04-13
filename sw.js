@@ -1,12 +1,13 @@
-const CACHE = 'adelantos-v2';
+const CACHE    = 'adelantos-v2';
+const BASE     = '/adelantos-app';
 
 const ASSETS = [
-  './',
-  './index.html',
-  './adelantos-app.jsx',
-  './manifest.json',
-  './icon-192.png',
-  './icon-512.png',
+  BASE + '/',
+  BASE + '/index.html',
+  BASE + '/adelantos-app.jsx',
+  BASE + '/manifest.json',
+  BASE + '/icon-192.png',
+  BASE + '/icon-512.png',
   'https://unpkg.com/react@18/umd/react.production.min.js',
   'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
   'https://unpkg.com/@babel/standalone@7.23.5/babel.min.js',
@@ -36,10 +37,10 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = event.request.url;
 
-  // Nunca interceptar el backup
+  // Nunca interceptar el backup en la nube
   if (url.includes('script.google.com')) return;
 
-  // Para JS/JSX externos (unpkg, babel) → cache-first, sin expirar
+  // CDN (React, Babel, fuentes) → cache-first
   if (url.includes('unpkg.com') || url.includes('fonts.g')) {
     event.respondWith(
       caches.match(event.request).then(cached => {
@@ -53,14 +54,16 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Para archivos locales (index, jsx, manifest, iconos):
-  // Network-first → si falla, caché → así siempre tiene la versión más reciente
+  // Archivos locales → network-first, fallback a caché
   event.respondWith(
     fetch(event.request)
       .then(res => {
         if (res.ok) caches.open(CACHE).then(c => c.put(event.request, res.clone()));
         return res;
       })
-      .catch(() => caches.match(event.request).then(c => c || caches.match('./index.html')))
+      .catch(() =>
+        caches.match(event.request)
+          .then(cached => cached || caches.match(BASE + '/index.html'))
+      )
   );
 });
