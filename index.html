@@ -12,13 +12,12 @@
 
   <title>Adelantos Salario</title>
 
-  <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="manifest" href="/adelantos-app/manifest.json" />
+  <link rel="apple-touch-icon" href="/adelantos-app/icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-  <!-- React + Babel desde CDN -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
@@ -72,7 +71,6 @@
 </head>
 <body>
 
-  <!-- Splash -->
   <div id="splash">
     <div id="splash-logo">
       <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white"
@@ -95,7 +93,7 @@
   <div id="root"></div>
 
   <!-- 1) Babel compila el JSX -->
-  <script type="text/babel" src="adelantos-app.jsx" data-presets="react"></script>
+  <script type="text/babel" src="/adelantos-app/adelantos-app.jsx" data-presets="react"></script>
 
   <!-- 2) Montar React cuando todo esté listo -->
   <script type="text/babel">
@@ -109,7 +107,7 @@
 
     function showError() {
       document.getElementById('splash-dots').style.display = 'none';
-      document.getElementById('splash-sub').style.display = 'none';
+      document.getElementById('splash-sub').style.display  = 'none';
       document.getElementById('splash-error').style.display = 'block';
       document.getElementById('splash-retry').style.display = 'block';
     }
@@ -125,26 +123,26 @@
       }
     }
 
-    // Intentar montar al cargar; si Babel aún no terminó, reintentar
     if (document.readyState === 'complete') {
       mount();
     } else {
       window.addEventListener('load', mount);
     }
 
-    // Seguro extra: si en 15s no cargó, mostrar error con botón de reintento
+    // Seguro: si en 15s no cargó mostrar error
     const safetyTimer = setTimeout(() => {
       if (document.getElementById('splash')) showError();
     }, 15000);
 
-    // Limpiar timer si la app cargó bien
     window.__appLoaded = () => clearTimeout(safetyTimer);
 
     // Service Worker
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js')
-        .then(reg => console.log('SW:', reg.scope))
-        .catch(err => console.log('SW error:', err));
+      navigator.serviceWorker.register('/adelantos-app/sw.js', {
+        scope: '/adelantos-app/'
+      })
+      .then(reg => console.log('SW:', reg.scope))
+      .catch(err => console.log('SW error:', err));
     }
   </script>
 
