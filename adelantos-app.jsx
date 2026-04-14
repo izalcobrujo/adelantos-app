@@ -1305,7 +1305,7 @@ function App() {
     { id: "dashboard", icon: "dashboard",  label: "Dashboard" },
     { id: "empleados", icon: "group",       label: "Personal" },
     { id: "adelantos", icon: "account_balance", label: "Adelanto" },
-    { id: "diapago",   icon: "payments",    label: "Día Pago" },
+    { id: "diapago",   icon: "payments",    label: "Pago" },
   ];
 
   return (
@@ -1372,7 +1372,7 @@ function App() {
           return (
             <button key={t.id} onClick={() => setTab(t.id)} style={{
               display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-              padding: "8px 18px", borderRadius: 14, border: "none", cursor: "pointer",
+              padding: "8px 10px", borderRadius: 14, border: "none", cursor: "pointer",
               background: active ? "#e8f5ee" : "transparent",
               color: active ? T.secondary : T.outline, gap: 3, transition: "all .15s"
             }}>
