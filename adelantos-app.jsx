@@ -388,7 +388,7 @@ function ModDashboard({ data, setData, setToast, setTab, setPrefilledEmp }) {
         const suc = emp?.sucursal || "Sin Sucursal";
         map[suc] = (map[suc] || 0) + Number(a.cantidad);
     });
-    return Object.entries(map).sort((a, b) => b.1 - a.1);
+    return Object.entries(map).sort((a, b) => b[1] - a[1]);
   }, [data]);
 
   const diasCierre = useMemo(() => {
