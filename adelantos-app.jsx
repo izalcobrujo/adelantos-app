@@ -102,6 +102,7 @@ const MI = ({ name, size = 22, color = T.onSurfaceVar, fill = false }) => {
     expand_more:  <path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/>,
     close:        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>,
     arrow_back:   <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>,
+    menu:         <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>,
     account_balance:<path d="M4 10v7h3v-7H4zm6 0v7h3v-7h-3zM2 22h19v-3H2v3zm14-12v7h3v-7h-3zM11.5 1L2 6v2h19V6l-9.5-5z"/>,
     dollar:       null,
     location_on: <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>,
@@ -509,23 +510,60 @@ function ModDashboard({ data, setData, setToast, setTab, setPrefilledEmp }) {
             </div>
         </div>
 
-        {/* Gráfica Sucursales */}
+        {/* Gráfica Pastel Sucursales */}
         <div style={{ background: T.surfaceLowest, borderRadius: 16, padding: 20, border: `1px solid ${T.outlineVar}22` }}>
             <h3 style={{ fontFamily: "'Manrope', sans-serif", fontSize: 15, fontWeight: 800, color: T.onSurface, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-                <MI name="location_on" size={18} color={T.secondary} fill /> Gasto por Sucursal
+                <MI name="location_on" size={18} color={T.secondary} fill /> Adelantos por Sucursal
             </h3>
-            <div style={{ display: "flex", gap: 12, alignItems: "flex-end", height: 120, paddingBottom: 20 }}>
-                {statsSuc.length === 0 ? <p style={{ fontSize: 12, color: T.outline }}>Sin datos</p> : statsSuc.map(([suc, val]) => {
-                    const pct = (val / statsSuc[0][1]) * 100;
-                    return (
-                        <div key={suc} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                            <div style={{ fontSize: 9, fontWeight: 800 }}>{fmt$(val)}</div>
-                            <div style={{ width: "100%", height: `${pct}%`, background: T.secondary, borderRadius: "4px 4px 0 0", minHeight: 4 }} />
-                            <div style={{ fontSize: 8, fontWeight: 700, textTransform: "uppercase", textAlign: "center", height: 10 }}>{suc}</div>
-                        </div>
-                    );
-                })}
-            </div>
+            {statsSuc.length === 0
+              ? <p style={{ fontSize: 12, color: T.outline }}>Sin datos</p>
+              : (() => {
+                  const PIE_COLORS = ["#00327d","#006c4a","#c8813a","#7b2d8b","#c0392b","#1a73e8"];
+                  const total = statsSuc.reduce((s,[,v]) => s + v, 0);
+                  let cumAngle = -90;
+                  const slices = statsSuc.map(([suc, val], i) => {
+                    const pct   = val / total;
+                    const start = cumAngle;
+                    cumAngle   += pct * 360;
+                    return { suc, val, pct, start, end: cumAngle, color: PIE_COLORS[i % PIE_COLORS.length] };
+                  });
+                  const polarToXY = (angle, r) => ({
+                    x: 80 + r * Math.cos(angle * Math.PI / 180),
+                    y: 80 + r * Math.sin(angle * Math.PI / 180),
+                  });
+                  return (
+                    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                      <svg width={160} height={160} viewBox="0 0 160 160" style={{ flexShrink: 0 }}>
+                        {slices.map((s, i) => {
+                          const p1  = polarToXY(s.start, 70);
+                          const p2  = polarToXY(s.end,   70);
+                          const big = (s.end - s.start) > 180 ? 1 : 0;
+                          return (
+                            <path key={i}
+                              d={`M80,80 L${p1.x},${p1.y} A70,70 0 ${big},1 ${p2.x},${p2.y} Z`}
+                              fill={s.color} stroke="#fff" strokeWidth={2}
+                            />
+                          );
+                        })}
+                        <circle cx={80} cy={80} r={36} fill={T.surfaceLowest} />
+                        <text x={80} y={76} textAnchor="middle" fontSize={9} fontWeight={700} fill={T.onSurfaceVar}>TOTAL</text>
+                        <text x={80} y={89} textAnchor="middle" fontSize={10} fontWeight={800} fill={T.onSurface}>{fmt$(total)}</text>
+                      </svg>
+                      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+                        {slices.map((s, i) => (
+                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                            <div style={{ width: 10, height: 10, borderRadius: 3, background: s.color, flexShrink: 0 }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: T.onSurface, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.suc}</div>
+                              <div style={{ fontSize: 10, color: T.outline }}>{fmt$(s.val)} · {Math.round(s.pct*100)}%</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+              })()
+            }
         </div>
       </div>
 
@@ -1252,12 +1290,22 @@ function App() {
   const dsIcon = { idle: "cloud", saving: "cloud_upload", ok: "check_circle", error: "warning", loading: "restore" }[ds];
   const dsColor = { idle: T.outline, saving: T.primary, ok: T.secondary, error: T.error, loading: T.primary }[ds];
 
-  const tabs = [
+  // Menú lateral
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const allModules = [
+    { id: "dashboard", icon: "dashboard",       label: "Dashboard" },
+    { id: "empleados", icon: "group",            label: "Personal" },
+    { id: "adelantos", icon: "account_balance",  label: "Adelantos" },
+    { id: "diapago",   icon: "payments",         label: "Día de Pago" },
+    { id: "historial", icon: "history",          label: "Historial & Datos" },
+  ];
+
+  const bottomTabs = [
     { id: "dashboard", icon: "dashboard",  label: "Dashboard" },
     { id: "empleados", icon: "group",       label: "Personal" },
     { id: "adelantos", icon: "account_balance", label: "Adelanto" },
     { id: "diapago",   icon: "payments",    label: "Día Pago" },
-    { id: "historial", icon: "history",     label: "Historial" },
   ];
 
   return (
@@ -1267,6 +1315,7 @@ function App() {
         @keyframes slideUp{from{transform:translateY(36px);opacity:0}to{transform:translateY(0);opacity:1}}
         @keyframes fadeUp{from{transform:translate(-50%,16px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+        @keyframes slideInRight{from{transform:translateX(100%)}to{transform:translateX(0)}}
         *{box-sizing:border-box}
         input,select,textarea,button{font-family:'Inter',sans-serif}
         button:disabled{opacity:.5;cursor:not-allowed!important}
@@ -1286,16 +1335,17 @@ function App() {
             ADELANTO DE SALARIOS
           </h1>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button onClick={() => setTab("historial")} style={{ background: "none", border: "none", borderRadius: "50%", width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
             <MI name={dsIcon} size={20} color={dsColor} fill />
           </button>
-          <button style={{ background: "none", border: "none", borderRadius: "50%", width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-            <MI name="notifications" size={20} color={T.outline} fill />
+          <button onClick={() => setMenuOpen(true)} style={{
+            background: T.primaryFixed, border: `2px solid ${T.outlineVar}33`,
+            borderRadius: "50%", width: 38, height: 38,
+            display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer"
+          }}>
+            <MI name="menu" size={20} color={T.primary} fill />
           </button>
-          <div style={{ width: 34, height: 34, borderRadius: "50%", background: T.primaryFixed, border: `2px solid ${T.outlineVar}44`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <MI name="person" size={18} color={T.primary} fill />
-          </div>
         </div>
       </header>
 
@@ -1308,7 +1358,7 @@ function App() {
         {tab === "historial" && <ModHistorial data={data} setData={setData} setToast={setToast} driveStatus={ds} lastBackup={lastTs} onBackup={handleBackup} onRestore={handleRestore} />}
       </div>
 
-      {/* Bottom Nav */}
+      {/* Bottom Nav — 4 tabs */}
       <nav style={{
         position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)",
         width: "100%", maxWidth: 540, background: "rgba(255,255,255,.92)",
@@ -1317,12 +1367,12 @@ function App() {
         alignItems: "center", padding: "10px 8px 20px", zIndex: 50,
         boxShadow: "0 -4px 20px rgba(0,0,0,.04)"
       }}>
-        {tabs.map(t => {
+        {bottomTabs.map(t => {
           const active = tab === t.id;
           return (
             <button key={t.id} onClick={() => setTab(t.id)} style={{
               display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-              padding: "8px 16px", borderRadius: 14, border: "none", cursor: "pointer",
+              padding: "8px 18px", borderRadius: 14, border: "none", cursor: "pointer",
               background: active ? "#e8f5ee" : "transparent",
               color: active ? T.secondary : T.outline, gap: 3, transition: "all .15s"
             }}>
@@ -1332,6 +1382,92 @@ function App() {
           );
         })}
       </nav>
+
+      {/* ── MENÚ LATERAL ─────────────────────────────────────────────────── */}
+      {menuOpen && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 200,
+          display: "flex", alignItems: "stretch", justifyContent: "flex-end"
+        }}>
+          {/* Overlay */}
+          <div onClick={() => setMenuOpen(false)} style={{
+            position: "absolute", inset: 0,
+            background: "rgba(25,28,30,.45)", backdropFilter: "blur(2px)"
+          }} />
+          {/* Drawer */}
+          <div style={{
+            position: "relative", width: 280, background: T.surfaceLowest,
+            boxShadow: "-8px 0 40px rgba(0,50,125,.12)",
+            display: "flex", flexDirection: "column",
+            animation: "slideInRight .22s ease", zIndex: 201,
+            maxWidth: "80vw"
+          }}>
+            {/* Drawer header */}
+            <div style={{
+              background: `linear-gradient(135deg, ${T.primary}, ${T.primaryCont})`,
+              padding: "32px 20px 24px", display: "flex", flexDirection: "column", gap: 4
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div style={{ width: 46, height: 46, borderRadius: 14, background: "rgba(255,255,255,.15)",
+                  display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <MI name="account_balance" size={24} color="#fff" fill />
+                </div>
+                <button onClick={() => setMenuOpen(false)} style={{
+                  background: "rgba(255,255,255,.15)", border: "none", borderRadius: "50%",
+                  width: 32, height: 32, display: "flex", alignItems: "center",
+                  justifyContent: "center", cursor: "pointer"
+                }}>
+                  <MI name="close" size={17} color="#fff" fill />
+                </button>
+              </div>
+              <div style={{ fontFamily: "'Manrope', sans-serif", fontWeight: 800, fontSize: 17,
+                color: "#fff", marginTop: 10 }}>ADELANTO DE SALARIOS</div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,.65)" }}>Sistema de gestión</div>
+            </div>
+
+            {/* Nav items */}
+            <div style={{ flex: 1, padding: "12px 10px", overflowY: "auto" }}>
+              {allModules.map(m => {
+                const active = tab === m.id;
+                return (
+                  <button key={m.id} onClick={() => { setTab(m.id); setMenuOpen(false); }} style={{
+                    width: "100%", display: "flex", alignItems: "center", gap: 14,
+                    padding: "13px 14px", borderRadius: 12, border: "none", cursor: "pointer",
+                    background: active ? `${T.primaryFixed}` : "transparent",
+                    marginBottom: 2, textAlign: "left", transition: "background .15s"
+                  }}>
+                    <div style={{ width: 38, height: 38, borderRadius: 10,
+                      background: active ? T.primary : T.surfaceLow,
+                      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <MI name={m.icon} size={19} color={active ? "#fff" : T.onSurfaceVar} fill={active} />
+                    </div>
+                    <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: active ? 700 : 500,
+                      color: active ? T.primary : T.onSurface }}>{m.label}</span>
+                    {active && <div style={{ marginLeft: "auto", width: 6, height: 6, borderRadius: "50%",
+                      background: T.primary }} />}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Drawer footer — cloud status */}
+            <div style={{ padding: "14px 16px", borderTop: `1px solid ${T.outlineVar}22`,
+              display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 9,
+                background: dsColor === T.secondary ? `${T.secondaryCont}44` : T.surfaceLow,
+                display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <MI name={dsIcon} size={17} color={dsColor} fill />
+              </div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: T.onSurface }}>
+                  {ds === "saving" ? "Guardando..." : ds === "ok" ? "Guardado ✓" : ds === "error" ? "Error al guardar" : "Nube activa"}
+                </div>
+                <div style={{ fontSize: 11, color: T.outline }}>Respaldo automático</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Toast msg={toast} onClose={() => setToast("")} />
     </div>
