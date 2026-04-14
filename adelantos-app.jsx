@@ -11,8 +11,8 @@ const load = () => { try { const r = localStorage.getItem(SK); return r ? JSON.p
 const save = (d) => { try { localStorage.setItem(SK, JSON.stringify(d)); } catch {} };
 const loadTs = () => localStorage.getItem(BK) || null;
 const saveTs = (t) => localStorage.setItem(BK, t);
-const INIT = { empleados: [], adelantos: [], quincenas_cerradas: [] };
-const SUCURSALES = ["LOURDES", "SANTA ANA", "SONSONATE", "CENTRAL", "ADMINISTRATIVO"];
+const INIT = { empleados: [], adelantos: [], quincenas_cerradas: [], pagos: [] };
+const SUCURSALES = ["Principal", "Sucursal Norte", "Sucursal Sur", "Bodega", "Ventas Externas"];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt$ = (n) => `$${Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -388,20 +388,7 @@ function ModDashboard({ data, setData, setToast, setTab, setPrefilledEmp }) {
         const suc = emp?.sucursal || "Sin Sucursal";
         map[suc] = (map[suc] || 0) + Number(a.cantidad);
     });
-    const entries = Object.entries(map).sort((a, b) => b[1] - a[1]);
-    const grandTotal = entries.reduce((s, e) => s + e[1], 0);
-    
-    // Generar gradiente para el pastel
-    let currentPct = 0;
-    const colors = [T.primary, T.secondary, "#f5a623", "#7ed321", "#bd10e0"];
-    const gradientParts = entries.map((e, i) => {
-        const pct = grandTotal > 0 ? (e[1] / grandTotal) * 100 : 0;
-        const start = currentPct;
-        currentPct += pct;
-        return `${colors[i % colors.length]} ${start}% ${currentPct}%`;
-    });
-
-    return { entries, gradient: gradientParts.join(", "), grandTotal, colors };
+    return Object.entries(map).sort((a, b) => b.1 - a.1);
   }, [data]);
 
   const diasCierre = useMemo(() => {
@@ -522,36 +509,23 @@ function ModDashboard({ data, setData, setToast, setTab, setPrefilledEmp }) {
             </div>
         </div>
 
-        {/* Gráfica Sucursales (PASTEL) */}
+        {/* Gráfica Sucursales */}
         <div style={{ background: T.surfaceLowest, borderRadius: 16, padding: 20, border: `1px solid ${T.outlineVar}22` }}>
-            <h3 style={{ fontFamily: "'Manrope', sans-serif", fontSize: 15, fontWeight: 800, color: T.onSurface, marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}>
+            <h3 style={{ fontFamily: "'Manrope', sans-serif", fontSize: 15, fontWeight: 800, color: T.onSurface, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
                 <MI name="location_on" size={18} color={T.secondary} fill /> Gasto por Sucursal
             </h3>
-            {statsSuc.grandTotal === 0 ? (
-                <p style={{ fontSize: 12, color: T.outline, textAlign: "center", padding: 20 }}>Sin datos para mostrar</p>
-            ) : (
-                <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-                    <div style={{ 
-                        width: 120, height: 120, borderRadius: "50%", flexShrink: 0,
-                        background: `conic-gradient(${statsSuc.gradient})`,
-                        boxShadow: "0 4px 12px rgba(0,0,0,.1)"
-                    }} />
-                    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
-                        {statsSuc.entries.map(([suc, val], i) => {
-                            const pct = ((val / statsSuc.grandTotal) * 100).toFixed(0);
-                            return (
-                                <div key={suc} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                        <div style={{ width: 10, height: 10, borderRadius: "50%", background: statsSuc.colors[i % statsSuc.colors.length] }} />
-                                        <span style={{ fontSize: 12, fontWeight: 600, color: T.onSurfaceVar }}>{suc}</span>
-                                    </div>
-                                    <span style={{ fontSize: 12, fontWeight: 800, color: T.onSurface }}>{pct}%</span>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
+            <div style={{ display: "flex", gap: 12, alignItems: "flex-end", height: 120, paddingBottom: 20 }}>
+                {statsSuc.length === 0 ? <p style={{ fontSize: 12, color: T.outline }}>Sin datos</p> : statsSuc.map(([suc, val]) => {
+                    const pct = (val / statsSuc[0][1]) * 100;
+                    return (
+                        <div key={suc} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                            <div style={{ fontSize: 9, fontWeight: 800 }}>{fmt$(val)}</div>
+                            <div style={{ width: "100%", height: `${pct}%`, background: T.secondary, borderRadius: "4px 4px 0 0", minHeight: 4 }} />
+                            <div style={{ fontSize: 8, fontWeight: 700, textTransform: "uppercase", textAlign: "center", height: 10 }}>{suc}</div>
+                        </div>
+                    );
+                })}
+            </div>
         </div>
       </div>
 
@@ -765,11 +739,7 @@ function ModEmpleados({ data, setData, setToast, prefilledEmp, setPrefilledEmp }
                 style={{ background: T.surfaceLow, border: "none", borderRadius: 8, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                 <MI name="edit" size={15} color={T.onSurfaceVar} fill />
               </button>
-              <button onClick={() => {
-                if(window.confirm(`¿Deseas ${emp.activo ? 'DESACTIVAR' : 'ACTIVAR'} a ${emp.nombre}?`)) {
-                    setData(d => ({ ...d, empleados: d.empleados.map(e => e.id === emp.id ? { ...e, activo: !e.activo } : e) }));
-                }
-              }}
+              <button onClick={() => setData(d => ({ ...d, empleados: d.empleados.map(e => e.id === emp.id ? { ...e, activo: !e.activo } : e) }))}
                 style={{ background: emp.activo ? T.errorCont : `${T.secondaryCont}55`, border: "none", borderRadius: 8, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: emp.activo ? T.error : T.secondary, display: "block" }} />
               </button>
@@ -906,11 +876,7 @@ function ModAdelantos({ data, setData, setToast, prefilledEmp, setPrefilledEmp }
                     style={{ background: "#25D36622", border: "none", borderRadius: 8, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                     <MI name="wa" size={15} color="#25D366" />
                   </button>
-                  <button onClick={() => { 
-                    if (window.confirm("¿Estás seguro de ELIMINAR este adelanto? Esta acción no se puede deshacer.")) {
-                        setData(d => ({ ...d, adelantos: d.adelantos.filter(a => a.id !== adv.id) })); 
-                    }
-                  }}
+                  <button onClick={() => { if (window.confirm("¿Eliminar?")) setData(d => ({ ...d, adelantos: d.adelantos.filter(a => a.id !== adv.id) })); }}
                     style={{ background: T.errorCont, border: "none", borderRadius: 8, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                     <MI name="delete" size={15} color={T.error} fill />
                   </button>
@@ -1249,7 +1215,7 @@ function App() {
   }, []);
 
   const doBackup = useCallback(async (d) => {
-    if (!d.empleados?.length && !d.adelantos?.length) return false;
+    if (!d.empleados?.length && !d.adelantos?.length && !d.pagos?.length) return false;
     setDs("saving");
     try { const ts = await pushDrive(d); setLastTs(ts); setDs("ok"); setTimeout(() => setDs("idle"), 3000); return true; }
     catch { setDs("error"); setTimeout(() => setDs("idle"), 4000); return false; }
@@ -1289,7 +1255,8 @@ function App() {
   const tabs = [
     { id: "dashboard", icon: "dashboard",  label: "Dashboard" },
     { id: "empleados", icon: "group",       label: "Personal" },
-    { id: "adelantos", icon: "payments",    label: "Adelanto" },
+    { id: "adelantos", icon: "account_balance", label: "Adelanto" },
+    { id: "diapago",   icon: "payments",    label: "Día Pago" },
     { id: "historial", icon: "history",     label: "Historial" },
   ];
 
@@ -1337,6 +1304,7 @@ function App() {
         {tab === "dashboard" && <ModDashboard data={data} setData={setData} setToast={setToast} setTab={setTab} setPrefilledEmp={setPrefilledEmp} />}
         {tab === "empleados" && <ModEmpleados data={data} setData={setData} setToast={setToast} prefilledEmp={prefilledEmp} setPrefilledEmp={setPrefilledEmp} />}
         {tab === "adelantos" && <ModAdelantos data={data} setData={setData} setToast={setToast} prefilledEmp={prefilledEmp} setPrefilledEmp={setPrefilledEmp} />}
+        {tab === "diapago"   && <ModDiaPago  data={data} setData={setData} setToast={setToast}/>}
         {tab === "historial" && <ModHistorial data={data} setData={setData} setToast={setToast} driveStatus={ds} lastBackup={lastTs} onBackup={handleBackup} onRestore={handleRestore} />}
       </div>
 
@@ -1369,3 +1337,355 @@ function App() {
     </div>
   );
 }
+// ═══════════════════════════════════════════════════════════════════════════════
+// MÓDULO DÍA DE PAGO
+// ═══════════════════════════════════════════════════════════════════════════════
+function ModDiaPago({ data, setData, setToast }) {
+  const [buscar, setBuscar] = useState("");
+  const [empSel, setEmpSel] = useState(null);
+  const [modalPago, setModalPago] = useState(false);
+  const [salarioInput, setSalarioInput] = useState("");
+  const [modalDetalle, setModalDetalle] = useState(null); // pago ya registrado
+
+  // Quincena actual
+  const mesActual = today().substring(0, 7);
+  const qActual   = getQ();
+  const qKey      = `${mesActual}_${qActual}`;
+
+  // Empleados activos con sus adelantos de la quincena actual
+  const empleadosConInfo = data.empleados
+    .filter(e => e.activo !== false)
+    .map(emp => {
+      const adelantosQna = (data.adelantos || []).filter(
+        a => a.empleadoId === emp.id &&
+             a.fecha.startsWith(mesActual) &&
+             a.quincena === qActual
+      );
+      const totalAdelantos = adelantosQna.reduce((s, a) => s + Number(a.cantidad), 0);
+      const pagado = (data.pagos || []).find(
+        p => p.empleadoId === emp.id && p.quincena === qActual && p.mes === mesActual
+      );
+      return { emp, adelantosQna, totalAdelantos, pagado };
+    })
+    .filter(x => x.emp.nombre.toLowerCase().includes(buscar.toLowerCase()) ||
+                 (x.emp.puesto || "").toLowerCase().includes(buscar.toLowerCase()));
+
+  const pendientes = empleadosConInfo.filter(x => !x.pagado);
+  const pagados    = empleadosConInfo.filter(x =>  x.pagado);
+
+  // Salario neto calculado
+  const salarioNominal = parseFloat(salarioInput) || 0;
+  const selInfo        = empSel ? empleadosConInfo.find(x => x.emp.id === empSel.id) : null;
+  const totalAdelSel   = selInfo?.totalAdelantos || 0;
+  const saldoAPagar    = Math.max(0, salarioNominal - totalAdelSel);
+
+  const registrarPago = () => {
+    if (!salarioInput || salarioNominal <= 0) return setToast("Ingresa el salario nominal");
+    const pago = {
+      id:              Date.now() + "",
+      empleadoId:      empSel.id,
+      mes:             mesActual,
+      quincena:        qActual,
+      fecha:           today(),
+      salarioNominal,
+      totalAdelantos:  totalAdelSel,
+      saldoPagado:     saldoAPagar,
+      adelantosIds:    selInfo.adelantosQna.map(a => a.id),
+    };
+    setData(d => ({ ...d, pagos: [...(d.pagos || []), pago] }));
+    setToast(`Pago registrado para ${empSel.nombre} ✓`);
+    setModalPago(false);
+    setSalarioInput("");
+    setEmpSel(null);
+  };
+
+  const totalPagadoQna  = pagados.reduce((s, x) => s + (x.pagado?.saldoPagado || 0), 0);
+  const totalAdelQna    = empleadosConInfo.reduce((s, x) => s + x.totalAdelantos, 0);
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+        <div>
+          <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".18em", textTransform: "uppercase", color: T.secondary, margin: 0 }}>Nómina</p>
+          <h2 style={{ fontFamily: "'Manrope', sans-serif", fontSize: 24, fontWeight: 800, color: T.onSurface, margin: "4px 0 0" }}>Día de Pago</h2>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, background: `${T.secondaryCont}44`, padding: "5px 12px", borderRadius: 20 }}>
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: T.secondary, display: "inline-block" }} />
+          <span style={{ fontSize: 11, fontWeight: 700, color: T.onSecondaryCont }}>
+            {qActual === "01" ? "1ra" : "2da"} Qna · {ym2label(mesActual)}
+          </span>
+        </div>
+      </div>
+
+      {/* Resumen quincena */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+        <div style={{ background: T.primary, borderRadius: 14, padding: "16px 14px" }}>
+          <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", color: T.primaryFixedDim, margin: "0 0 6px" }}>Pendientes</p>
+          <p style={{ fontFamily: "'Manrope', sans-serif", fontSize: 26, fontWeight: 800, color: "#fff", margin: 0 }}>{pendientes.length}</p>
+          <p style={{ fontSize: 11, color: T.primaryFixedDim, marginTop: 4 }}>empleados por pagar</p>
+        </div>
+        <div style={{ background: T.surfaceLowest, borderRadius: 14, padding: "16px 14px", border: `1px solid ${T.outlineVar}22` }}>
+          <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", color: T.outline, margin: "0 0 6px" }}>Adelantos Qna</p>
+          <p style={{ fontFamily: "'Manrope', sans-serif", fontSize: 20, fontWeight: 800, color: T.accent || T.primary, margin: 0 }}>{fmt$(totalAdelQna)}</p>
+          <p style={{ fontSize: 11, color: T.outline, marginTop: 4 }}>{pagados.length} pagados · {fmt$(totalPagadoQna)}</p>
+        </div>
+      </div>
+
+      {/* Búsqueda */}
+      <div style={{ position: "relative", marginBottom: 16 }}>
+        <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }}>
+          <MI name="search" size={18} color={T.outline} fill />
+        </span>
+        <input value={buscar} onChange={e => setBuscar(e.target.value)} placeholder="Buscar empleado..."
+          style={{ width: "100%", padding: "0 14px 0 42px", height: 48, boxSizing: "border-box",
+            background: T.surfaceLow, border: "none", borderRadius: 10,
+            fontSize: 14, fontFamily: "'Inter', sans-serif", color: T.onSurface, outline: "none" }} />
+      </div>
+
+      {/* Pendientes de pago */}
+      {pendientes.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", color: T.onSurfaceVar, margin: "0 0 10px" }}>
+            Pendientes de pago ({pendientes.length})
+          </p>
+          {pendientes.map(({ emp, adelantosQna, totalAdelantos }) => (
+            <div key={emp.id} style={{ background: T.surfaceLowest, borderRadius: 14, padding: "14px 16px",
+              marginBottom: 8, border: `1px solid ${T.outlineVar}18`,
+              display: "flex", alignItems: "center", gap: 12 }}
+              onClick={() => { setEmpSel(emp); setModalPago(true); setSalarioInput(""); }}>
+              <Avatar nombre={emp.nombre} size={44} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 15, color: T.onSurface }}>{emp.nombre}</div>
+                <div style={{ fontSize: 12, color: T.outline, marginTop: 2 }}>{emp.puesto || "Sin puesto"}</div>
+                <div style={{ fontSize: 12, color: T.primary, marginTop: 4, fontWeight: 600 }}>
+                  {adelantosQna.length} adelanto{adelantosQna.length !== 1 ? "s" : ""} · {fmt$(totalAdelantos)}
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                <span style={{ background: `${T.primaryFixed}`, color: T.primary, fontSize: 10,
+                  fontWeight: 800, padding: "3px 9px", borderRadius: 6, textTransform: "uppercase" }}>Pendiente</span>
+                <CTABtn onClick={e => { e.stopPropagation(); setEmpSel(emp); setModalPago(true); setSalarioInput(""); }}
+                  style={{ padding: "6px 14px", fontSize: 12, height: "auto", borderRadius: 8 }}>
+                  <MI name="payments" size={13} color="#fff" fill />Pagar
+                </CTABtn>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Ya pagados */}
+      {pagados.length > 0 && (
+        <div>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", color: T.onSurfaceVar, margin: "0 0 10px" }}>
+            Pagados esta quincena ({pagados.length})
+          </p>
+          {pagados.map(({ emp, pagado }) => (
+            <div key={emp.id} style={{ background: T.surfaceLowest, borderRadius: 14, padding: "14px 16px",
+              marginBottom: 8, border: `1.5px solid ${T.secondary}22`,
+              display: "flex", alignItems: "center", gap: 12, opacity: .85 }}
+              onClick={() => setModalDetalle(pagado)}>
+              <Avatar nombre={emp.nombre} size={44} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 15, color: T.onSurface }}>{emp.nombre}</div>
+                <div style={{ fontSize: 12, color: T.outline, marginTop: 2 }}>{emp.puesto || "Sin puesto"}</div>
+                <div style={{ fontSize: 12, color: T.secondary, marginTop: 4, fontWeight: 600 }}>
+                  Pagado: {fmt$(pagado.saldoPagado)} · {pagado.fecha}
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                <span style={{ background: `${T.secondaryCont}55`, color: T.secondary, fontSize: 10,
+                  fontWeight: 800, padding: "3px 9px", borderRadius: 6, textTransform: "uppercase" }}>✓ Pagado</span>
+                <GhostBtn onClick={e => { e.stopPropagation(); setModalDetalle(pagado); }}
+                  style={{ padding: "5px 12px", fontSize: 12, height: "auto", borderRadius: 8 }}>
+                  <MI name="visibility" size={13} color={T.onSurfaceVar} fill />Ver
+                </GhostBtn>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {empleadosConInfo.length === 0 && (
+        <div style={{ textAlign: "center", color: T.outline, marginTop: 48, fontSize: 14 }}>
+          Sin empleados activos
+        </div>
+      )}
+
+      {/* ── MODAL REGISTRAR PAGO ─────────────────────────────────────────── */}
+      {modalPago && selInfo && (
+        <Modal title="Registrar Pago" onClose={() => { setModalPago(false); setEmpSel(null); }}>
+
+          {/* Info empleado */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, background: T.surfaceLow,
+            borderRadius: 12, padding: "12px 14px", marginBottom: 18 }}>
+            <Avatar nombre={empSel.nombre} size={46} />
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 16, color: T.onSurface }}>{empSel.nombre}</div>
+              <div style={{ fontSize: 13, color: T.outline }}>{empSel.puesto || "Sin puesto"}</div>
+            </div>
+          </div>
+
+          {/* Adelantos de la quincena */}
+          {selInfo.adelantosQna.length > 0 ? (
+            <div style={{ background: `${T.primaryFixed}88`, borderRadius: 12, padding: "12px 14px", marginBottom: 16, border: `1px solid ${T.primary}22` }}>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".13em", textTransform: "uppercase", color: T.primary, margin: "0 0 10px" }}>
+                Adelantos de esta quincena
+              </p>
+              {selInfo.adelantosQna.map(a => (
+                <div key={a.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5 }}>
+                  <span style={{ color: T.onSurfaceVar }}>{a.fecha}{a.observacion ? ` · ${a.observacion}` : ""}</span>
+                  <span style={{ fontWeight: 700, color: T.primary }}>{fmt$(a.cantidad)}</span>
+                </div>
+              ))}
+              <div style={{ height: 1, background: `${T.primary}22`, margin: "8px 0" }} />
+              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 14 }}>
+                <span style={{ color: T.primary }}>Total adelantos</span>
+                <span style={{ color: T.primary }}>{fmt$(totalAdelSel)}</span>
+              </div>
+            </div>
+          ) : (
+            <div style={{ background: T.surfaceLow, borderRadius: 10, padding: "10px 14px", marginBottom: 16,
+              fontSize: 13, color: T.outline }}>Sin adelantos en esta quincena.</div>
+          )}
+
+          {/* Ingresar salario */}
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: "block", fontSize: 11, fontWeight: 700, letterSpacing: ".15em",
+              textTransform: "uppercase", color: T.onSurfaceVar, marginBottom: 8 }}>
+              Salario nominal de esta quincena
+            </label>
+            <div style={{ position: "relative" }}>
+              <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)",
+                fontFamily: "'Manrope', sans-serif", fontSize: 22, fontWeight: 700, color: T.primary }}>$</span>
+              <input type="number" value={salarioInput} onChange={e => setSalarioInput(e.target.value)}
+                placeholder="0.00" min="0"
+                style={{ width: "100%", height: 64, paddingLeft: 32, paddingRight: 14,
+                  background: T.surfaceLow, border: "none", borderRadius: 10,
+                  fontSize: 28, fontFamily: "'Manrope', sans-serif", fontWeight: 800,
+                  color: T.primary, outline: "none", boxSizing: "border-box" }} />
+            </div>
+          </div>
+
+          {/* Resumen de pago */}
+          {salarioNominal > 0 && (
+            <div style={{ background: `linear-gradient(135deg, ${T.primary}, ${T.primaryCont})`,
+              borderRadius: 14, padding: "18px 16px", marginBottom: 18, color: "#fff" }}>
+              <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".2em", opacity: .7,
+                textTransform: "uppercase", margin: "0 0 12px" }}>Resumen de Liquidación</p>
+              {[
+                ["Salario nominal",  fmt$(salarioNominal)],
+                ["Menos adelantos", `- ${fmt$(totalAdelSel)}`],
+              ].map(([l, v]) => (
+                <div key={l} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}>
+                  <span style={{ opacity: .8 }}>{l}</span>
+                  <span style={{ fontWeight: 600 }}>{v}</span>
+                </div>
+              ))}
+              <div style={{ height: 1, background: "rgba(255,255,255,.25)", margin: "10px 0" }} />
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 14, fontWeight: 700 }}>Saldo a pagar</span>
+                <span style={{ fontFamily: "'Manrope', sans-serif", fontSize: 26, fontWeight: 800 }}>
+                  {fmt$(saldoAPagar)}
+                </span>
+              </div>
+              {saldoAPagar === 0 && totalAdelSel >= salarioNominal && (
+                <p style={{ fontSize: 12, opacity: .75, marginTop: 8, textAlign: "center" }}>
+                  ⚠️ Los adelantos cubren o superan el salario nominal.
+                </p>
+              )}
+            </div>
+          )}
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <OutlineBtn onClick={() => { setModalPago(false); setEmpSel(null); }}>Cancelar</OutlineBtn>
+            <CTABtn onClick={registrarPago} disabled={salarioNominal <= 0}>
+              <MI name="check_circle" size={16} color="#fff" fill />Confirmar Pago
+            </CTABtn>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── MODAL DETALLE PAGO YA REGISTRADO ────────────────────────────── */}
+      {modalDetalle && (() => {
+        const emp  = data.empleados.find(e => e.id === modalDetalle.empleadoId);
+        const advs = (data.adelantos || []).filter(a => modalDetalle.adelantosIds?.includes(a.id));
+        const share = () => {
+          const lines = [
+            `💵 *Comprobante de Pago*`,
+            `👤 ${emp?.nombre || "—"}`,
+            `📅 ${modalDetalle.fecha} · ${modalDetalle.quincena === "01" ? "1ra" : "2da"} Qna ${ym2label(modalDetalle.mes)}`,
+            ``,
+            `Salario nominal:  ${fmt$(modalDetalle.salarioNominal)}`,
+            `Menos adelantos:  - ${fmt$(modalDetalle.totalAdelantos)}`,
+            `─────────────────────`,
+            `Saldo pagado:     ${fmt$(modalDetalle.saldoPagado)}`,
+          ].join("\n");
+          window.open(`https://wa.me/?text=${encodeURIComponent(lines)}`, "_blank");
+        };
+        return (
+          <Modal title="Detalle de Pago" onClose={() => setModalDetalle(null)}>
+            {/* Encabezado recibo */}
+            <div style={{ background: `linear-gradient(135deg, ${T.primary}, ${T.primaryCont})`,
+              borderRadius: 16, padding: "20px", marginBottom: 16, color: "#fff", position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: -20, right: -20, width: 80, height: 80,
+                background: "rgba(255,255,255,.07)", borderRadius: "50%", filter: "blur(12px)" }} />
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                <div>
+                  <p style={{ fontSize: 9, letterSpacing: ".2em", opacity: .7, textTransform: "uppercase", margin: "0 0 4px" }}>Comprobante de Pago</p>
+                  <p style={{ fontFamily: "'Manrope', sans-serif", fontSize: 17, fontWeight: 800, margin: 0 }}>{emp?.nombre || "—"}</p>
+                  <p style={{ fontSize: 12, opacity: .75, marginTop: 2 }}>
+                    {emp?.puesto || "—"} · {modalDetalle.quincena === "01" ? "1ra" : "2da"} Qna {ym2label(modalDetalle.mes)}
+                  </p>
+                </div>
+                <MI name="check_circle" size={32} color="rgba(255,255,255,.5)" fill />
+              </div>
+              <div style={{ height: 1, background: "rgba(255,255,255,.2)", margin: "10px 0" }} />
+              {[
+                ["Fecha de pago",    modalDetalle.fecha],
+                ["Salario nominal",  fmt$(modalDetalle.salarioNominal)],
+                ["Total adelantos",  `- ${fmt$(modalDetalle.totalAdelantos)}`],
+              ].map(([l, v]) => (
+                <div key={l} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}>
+                  <span style={{ opacity: .75 }}>{l}</span>
+                  <span style={{ fontWeight: 600 }}>{v}</span>
+                </div>
+              ))}
+              <div style={{ height: 1, background: "rgba(255,255,255,.2)", margin: "10px 0" }} />
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 14, fontWeight: 700 }}>Saldo pagado</span>
+                <span style={{ fontFamily: "'Manrope', sans-serif", fontSize: 24, fontWeight: 800 }}>
+                  {fmt$(modalDetalle.saldoPagado)}
+                </span>
+              </div>
+            </div>
+
+            {/* Adelantos incluidos */}
+            {advs.length > 0 && (
+              <div style={{ background: T.surfaceLow, borderRadius: 12, padding: "12px 14px", marginBottom: 16 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".13em", textTransform: "uppercase",
+                  color: T.onSurfaceVar, margin: "0 0 8px" }}>Adelantos incluidos</p>
+                {advs.map(a => (
+                  <div key={a.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
+                    <span style={{ color: T.onSurfaceVar }}>{a.fecha}{a.observacion ? ` · ${a.observacion}` : ""}</span>
+                    <span style={{ fontWeight: 600, color: T.primary }}>{fmt$(a.cantidad)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <OutlineBtn onClick={() => setModalDetalle(null)}>Cerrar</OutlineBtn>
+              <CTABtn onClick={share} style={{ background: "#25D366", boxShadow: "0 4px 16px rgba(37,211,102,.2)" }}>
+                <MI name="wa" size={16} color="#fff" />WhatsApp
+              </CTABtn>
+            </div>
+          </Modal>
+        );
+      })()}
+    </div>
+  );
+}
+
+if (typeof window.__appLoaded === 'function') window.__appLoaded();
