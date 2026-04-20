@@ -12,7 +12,7 @@ const save = (d) => { try { localStorage.setItem(SK, JSON.stringify(d)); } catch
 const loadTs = () => localStorage.getItem(BK) || null;
 const saveTs = (t) => localStorage.setItem(BK, t);
 const INIT = { empleados: [], adelantos: [], quincenas_cerradas: [], pagos: [] };
-const SUCURSALES = ["Principal", "Sucursal Norte", "Sucursal Sur", "Bodega", "Ventas Externas"];
+const SUCURSALES = ["GARAN 1","GARAN 2","GARAN 7"];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt$ = (n) => `$${Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
